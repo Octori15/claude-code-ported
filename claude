@@ -1,0 +1,19 @@
+#!/bin/sh
+# claude - run Claude Code in a terminal on macOS 12, through claude-libicu-wrapper.
+#
+# Runs the binary bundled with the newest installed VS Code extension, or the
+# binary named by CLAUDE_NATIVE_BINARY.
+set -eu
+
+here=$(cd "$(dirname "$0")" && pwd -P)
+bin=${CLAUDE_NATIVE_BINARY:-}
+if [ -z "$bin" ]; then
+    bin=$(ls -td "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude \
+        "$HOME"/.vscode-insiders/extensions/anthropic.claude-code-*/resources/native-binary/claude \
+        2>/dev/null | head -n 1 || true)
+fi
+if [ -z "$bin" ]; then
+    echo "claude: no Claude Code binary found. Install the VS Code extension, or set CLAUDE_NATIVE_BINARY." >&2
+    exit 1
+fi
+exec "$here/claude-libicu-wrapper" "$bin" "$@"

@@ -1,0 +1,42 @@
+#!/bin/sh
+# claude-libicu-wrapper - start Claude Code on macOS 12 (Monterey) from the
+# patched copy that patch.sh made next to this script, claude-patched.
+#
+#   claude-libicu-wrapper /path/to/claude [arguments for claude...]
+#
+# For VS Code, set "claudeCode.claudeProcessWrapper" to this file's absolute path.
+# The extension then starts every Claude process as
+#   claude-libicu-wrapper <claude binary bundled with the extension> <arguments...>
+#
+# This script changes nothing on disk. If patch.sh has not been run for that exact
+# binary (first use, or after an extension update), it prints the command to run and
+# exits. Nothing here writes to stdout: the extension reads Claude's stdout.
+set -eu
+
+here=$(cd "$(dirname "$0")" && pwd -P)
+patched="$here/claude-patched"
+
+die() {
+    printf 'claude-libicu-wrapper: %s\n' "$*" >&2
+    exit 1
+}
+
+[ $# -ge 1 ] || die "usage: $0 /path/to/claude [arguments...]"
+orig=$1
+shift
+[ -f "$orig" ] || die "not a file: $orig (the first argument must be the Claude Code binary)"
+
+# patch.sh records in claude-patched.source which binary the copy was made from:
+# path, size, mtime and inode.
+case $(uname -s) in
+Darwin) stamp=$(stat -f '%z:%m:%i' "$orig") ;;
+*) stamp=$(stat -c '%s:%Y:%i' "$orig") ;;
+esac
+if [ ! -x "$patched" ] || [ "$(cat "$patched.source" 2>/dev/null)" != "$orig|$stamp" ]; then
+    die "no patched copy of $orig. Run:  sh '$here/patch.sh' '$orig'"
+fi
+
+# The CLI's self-updater would install an unpatched build; VS Code updates the extension.
+DISABLE_AUTOUPDATER=${DISABLE_AUTOUPDATER:-1}
+export DISABLE_AUTOUPDATER
+exec "$patched" "$@"
